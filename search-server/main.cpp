@@ -68,9 +68,9 @@ public:
 
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
-        double c = 1.0 / words.size();
+        double term_freq = 1.0 / words.size();
         for (const string& s : words) {
-            documents_words_freq_[s][document_id] += c;
+            documents_words_freq_[s][document_id] += term_freq;
         }
     }
 
@@ -107,34 +107,38 @@ private:
     }
 
     Query ParseQuery(const string& text) const {
-        Query q;
+        Query query;
         for (const string& word : SplitIntoWordsNoStop(text)) {
             if (word[0] == '-') {
-                q.minus_words.insert(word.substr(1));
+                query.minus_words.insert(word.substr(1));
             } else {
-                q.query_words.insert(word);
+                query.query_words.insert(word);
             }
         }
-        return q;
+        return query;
     }
+
+    double CalculateIdf(const string& query_word) const {
+        return log(static_cast<double> (document_count_) / documents_words_freq_.at(query_word).size());
+    } 
 
     vector<Document> FindAllDocuments(const Query& query) const {        
         vector<Document> matched_documents;
         map<int, double> relevance;
-        for (const string& q : query.query_words) {
-            if (documents_words_freq_.find(q) == documents_words_freq_.end()) {
+        for (const string& query_word : query.query_words) {
+            if (documents_words_freq_.find(query_word) == documents_words_freq_.end()) {
                 continue;
             }
-            double idf = log(static_cast<double> (document_count_) / documents_words_freq_.at(q).size());
-            for (auto [key, value] : documents_words_freq_.at(q)) {
+            double idf = CalculateIdf(query_word);
+            for (auto [key, value] : documents_words_freq_.at(query_word)) {
                 relevance[key] += idf * value;
             }
         }
-        for (const string& m : query.minus_words) {
-            if (documents_words_freq_.find(m) == documents_words_freq_.end()) {
+        for (const string& minus_word : query.minus_words) {
+            if (documents_words_freq_.find(minus_word) == documents_words_freq_.end()) {
                 continue;
             }
-            for (auto& [key, value] : documents_words_freq_.at(m)) {
+            for (auto& [key, value] : documents_words_freq_.at(minus_word)) {
                 relevance.erase(key);
             }
         }
