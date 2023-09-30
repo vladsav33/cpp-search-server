@@ -117,9 +117,6 @@ public:
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query,
                                       DocumentPredicate document_predicate) const {
-        if (!CheckQuery(raw_query)) {
-            throw invalid_argument("Incorrect query");
-        }
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, document_predicate);
 
@@ -153,9 +150,6 @@ public:
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
-        if (!CheckQuery(raw_query)) {
-            throw invalid_argument("Incorrect query");
-        }
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
         for (const string& word : query.plus_words) {
@@ -179,10 +173,7 @@ public:
     }
 
     int GetDocumentId(int index) const {
-        if (index >= docs_.size() || index < 0) {
-            throw out_of_range("Index out of range");
-        }
-        return docs_[index];
+        return docs_.at(index);
     }
 
 private:
@@ -241,6 +232,9 @@ private:
     Query ParseQuery(const string& text) const {
         Query query;
         for (const string& word : SplitIntoWords(text)) {
+            if (!CheckQuery(word)) {
+                throw invalid_argument("Incorrect query");
+            }
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
@@ -253,17 +247,15 @@ private:
         return query;
     }
 
-    bool CheckQuery(const string& text) const {
-        for (const string& word : SplitIntoWords(text)) {
-            if (!IsValidWord(word)) {
-                return false;
-            }
-            if (word.size() == 1 && word[0] == '-') {
-                return false;
-            }
-            if (word.size() > 1 && word[0] == '-' && word[1] == '-') {
-                return false;
-            }
+    bool CheckQuery(const string& word) const {
+        if (!IsValidWord(word)) {
+            return false;
+        }
+        if (word.size() == 1 && word[0] == '-') {
+            return false;
+        }
+        if (word.size() > 1 && word[0] == '-' && word[1] == '-') {
+            return false;
         }
         return true;
     }
